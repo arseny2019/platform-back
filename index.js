@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const blogRouter = require('./routes/blogRouter');
+const blogRouter = require('./routes/blog.router');
+const authRouter = require('./routes/auth.router');
 require('dotenv').config();
 const PORT = process.env.PORT || 5000;
 const dbUrl = process.env.MONGO_URL;
@@ -17,8 +18,6 @@ app.use(function (req, res, next) {
     if (allowedOrigins.indexOf(origin) > -1) {
         res.setHeader("Access-Control-Allow-Origin", origin);
     }
-
-// res.setHeader("Access-Control-Allow-Origin", "http://localhost:4200");
 
 // Request methods you wish to allow
     res.setHeader(
@@ -37,6 +36,7 @@ app.use(function (req, res, next) {
 });
 app.use(express.json());
 app.use('/blog', blogRouter);
+app.use('/auth', authRouter);
 
 const start = async () => {
     try {
