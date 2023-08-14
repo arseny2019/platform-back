@@ -11,8 +11,11 @@ router.post('/registration', [
     check('password', 'Пароль должен быть больше 4 и меньше 12 символов').isLength({min: 5, max: 11})
 ], controller.registration);
 router.post('/login', controller.login);
-router.get('/users', roleMiddleware(['ADMIN']), controller.getUsers);
+router.get('/users', controller.getUsers);
+router.get('/tokens', controller.getTokens);
 router.post('/create-role', controller.createRole);
-router.get('/confirm/:confirmationCode', controller.verifyUser);
+router.get('/confirm/:activationCode', controller.activateUser);
+router.get('/refresh', controller.refresh);
+router.post('/delete-user', controller.deleteUser);
 
 module.exports = router;

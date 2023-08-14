@@ -1,42 +1,10 @@
 const User = require('../models/user.model');
+const Token = require('../models/token.model');
 const Role = require('../models/role.model');
 const bcrypt = require('bcryptjs');
 const {validationResult} = require('express-validator');
 const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
-
-const generateAccessToken = (id, username, roles) => {
-    const payload = {id, username, roles};
-    return jwt.sign(payload, process.env.SECRET_KEY, {expiresIn: '24h'});
-}
-
-const sendConfirmationEmail = (name, email, confirmationCode) => {
-    return transport.sendMail({
-        from: process.env.EMAIL,
-        to: email,
-        subject: "Please confirm your account",
-        html: `<h1>Email Confirmation</h1>
-        <h2>Hello ${name}</h2>
-        <p>Thank you for subscribing. Please confirm your email by clicking on the following link</p>
-        <a href="${process.env.HOST}/auth/confirm/${confirmationCode}">Click here</a>
-        </div>`,
-    });
-};
-
-const transport = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    service: 'gmail',
-    port: 465,
-    secure: true,
-    auth: {
-        type: "OAuth2",
-        accessUrl: 'https://oauth2.googleapis.com/token',
-        user: "platform.mail.confirmation@gmail.com",
-        clientId: "551117779496-d9falusujmk4n55chgesig1843cid41a.apps.googleusercontent.com",
-        clientSecret: "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",
-        refreshToken: '1//04TNVGHcQW4-ZCgYIARAAGAQSNwF-L9Ir-srglUW5nTQ7KJNyB-3kQdHipNk2ATtF_fx2_qlBzZ8O0P5Fo6X2wNvGLMvwbjp6C4o'
-    }
-})
+const userService = require('../services/user.service');
 
 class AuthController {
 
@@ -46,43 +14,30 @@ class AuthController {
             if (!errors.isEmpty()) {
                 return res.status(400).json({message: 'Ошибка при регистрации', errors});
             }
-            const {username, password, email} = req.body;
-            const candidate = await User.findOne({username});
-            if (candidate) {
-                return res.status(400).json({message: 'Пользователь с таким именем уже существует'})
-            }
-            const confirmationCode = jwt.sign({email}, process.env.SECRET_KEY);
-            await sendConfirmationEmail(username, email, confirmationCode);
-            const hashPassword = bcrypt.hashSync(password, 7);
-            const userRole = await Role.findOne({value: 'USER'});
-            const user = new User({
-                username,
-                password: hashPassword,
-                roles: [userRole.value],
-                confirmationCode,
-                email
-            });
-            await user.save();
-            return res.json({message: `Пользователь ${username} успешно зарегистрирован`});
+            const {password, email} = req.body;
+            const userData = await userService.registration(email, password);
+            console.log('userData', userData);
+            res.cookie('refreshToken', userData.refreshToken, {maxAge: 5 * 24 * 60 * 60 * 1000, httpOnly: true});
+            return res.json({message: `Пользователь ${email} успешно зарегистрирован`, userData});
         } catch (e) {
             console.log('Registration error', e);
-            return res.status(400).json({message: 'Registration error'})
+            return res.status(400).json({message: 'Registration error', error: e})
         }
     }
 
     async login(req, res) {
         try {
-            const {username, password} = req.body;
-            const user = await User.findOne({username});
+            const {email, password} = req.body;
+            const user = await User.findOne({email});
             if (!user) {
                 res.status(400).json({message: `Пользователь ${username} не найден`})
             }
             const validPassword = bcrypt.compareSync(password, user.password);
-            if (!validPassword) {
-                res.status(400).json({message: `Введен неверный пароль`})
-            }
-            const token = generateAccessToken(user._id, user.username, user.roles);
-            return res.json({token});
+            // if (!validPassword) {
+            //     res.status(400).json({message: `Введен неверный пароль`})
+            // }
+            // const token = generateAccessToken(user._id, user.username, user.roles);
+            // return res.json({token});
         } catch (e) {
             console.log(e);
             res.status(400).json({message: 'Login error'})
@@ -96,6 +51,16 @@ class AuthController {
         } catch (e) {
             console.log(e);
             res.status(400).json({message: 'Get users error'})
+        }
+    }
+
+    async getTokens(req, res) {
+        try {
+            const tokens = await Token.find();
+            res.json({tokens});
+        } catch (e) {
+            console.log(e);
+            res.status(400).json({message: 'Get TOKENS error'})
         }
     }
 
@@ -114,26 +79,30 @@ class AuthController {
         }
     }
 
-    async verifyUser(req, res) {
+    async activateUser(req, res) {
         try {
-            await User.findOne({
-                confirmationCode: req.params.confirmationCode,
-            })
-                .then((user) => {
-                    if (!user) {
-                        return res.status(404).send({message: 'Пользователь не найден.'});
-                    }
-                    user.status = 'Active';
-                    user.save()
-                        .then(() => res.json({message: 'Почта успешно подтверждена.'}))
-                        .catch((err) => {
-                            if (err) {
-                                return res.status(500).send({message: err});
-                            }
-                        });
-                })
+            const activationCode = req.params.activationCode;
+            await userService.activateUser(activationCode);
+            return res.redirect(process.env.CLIENT_URL);
         } catch (e) {
-            res.status(400).json({message: 'Get confirmation error'})
+            res.status(400).json({message: e.message})
+        }
+    }
+
+    async refresh() {
+        try {
+
+        } catch (e) {
+
+        }
+    }
+
+    async deleteUser(req, res) {
+        try {
+            await userService.deleteUser(req.body.email);
+            res.status(200).json({message: `Пользователь ${req.body.email} успешно удален`});
+        } catch (e) {
+            res.status(400).json({message: 'Не получилось удалить пользователя'})
         }
     }
 }

@@ -1,5 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const cookieParser = require('cookie-parser');
 const blogRouter = require('./routes/blog.router');
 const authRouter = require('./routes/auth.router');
 require('dotenv').config();
@@ -35,6 +36,7 @@ app.use(function (req, res, next) {
     next();
 });
 app.use(express.json());
+app.use(cookieParser());
 app.use('/blog', blogRouter);
 app.use('/auth', authRouter);
 
