@@ -5,14 +5,15 @@ const bcrypt = require('bcryptjs');
 const {validationResult} = require('express-validator');
 const jwt = require('jsonwebtoken');
 const userService = require('../services/user.service');
+const ApiError = require('../exeptions/api-error');
 
 class AuthController {
 
-    async registration(req, res) {
+    async registration(req, res, next) {
         try {
             const errors = validationResult(req);
             if (!errors.isEmpty()) {
-                return res.status(400).json({message: 'Ошибка при регистрации', errors});
+                return next(ApiError.BadRequest('Ошибка при валидации', errors.array()))
             }
             const {password, email} = req.body;
             const userData = await userService.registration(email, password);
@@ -20,17 +21,16 @@ class AuthController {
             res.cookie('refreshToken', userData.refreshToken, {maxAge: 5 * 24 * 60 * 60 * 1000, httpOnly: true});
             return res.json({message: `Пользователь ${email} успешно зарегистрирован`, userData});
         } catch (e) {
-            console.log('Registration error', e);
-            return res.status(400).json({message: 'Registration error', error: e})
+            next(e);
         }
     }
 
-    async login(req, res) {
+    async login(req, res, next) {
         try {
             const {email, password} = req.body;
             const user = await User.findOne({email});
             if (!user) {
-                res.status(400).json({message: `Пользователь ${username} не найден`})
+                res.status(400).json({message: `Пользователь ${email} не найден`})
             }
             const validPassword = bcrypt.compareSync(password, user.password);
             // if (!validPassword) {
@@ -39,32 +39,29 @@ class AuthController {
             // const token = generateAccessToken(user._id, user.username, user.roles);
             // return res.json({token});
         } catch (e) {
-            console.log(e);
-            res.status(400).json({message: 'Login error'})
+            next(e);
         }
     }
 
-    async getUsers(req, res) {
+    async getUsers(req, res, next) {
         try {
             const users = await User.find();
             res.json({users});
         } catch (e) {
-            console.log(e);
-            res.status(400).json({message: 'Get users error'})
+            next(e);
         }
     }
 
-    async getTokens(req, res) {
+    async getTokens(req, res, next) {
         try {
             const tokens = await Token.find();
             res.json({tokens});
         } catch (e) {
-            console.log(e);
-            res.status(400).json({message: 'Get TOKENS error'})
+            next(e);
         }
     }
 
-    async createRole(req, res) {
+    async createRole(req, res, next) {
         try {
             const {value} = req.body;
             const roleExists = await Role.findOne({value});
@@ -75,17 +72,17 @@ class AuthController {
             await role.save();
             res.json({message: `Роль ${value} успешно создана`});
         } catch (e) {
-            res.status(400).json({message: 'Get role creation error'})
+            next(e);
         }
     }
 
-    async activateUser(req, res) {
+    async activateUser(req, res, next) {
         try {
             const activationCode = req.params.activationCode;
             await userService.activateUser(activationCode);
             return res.redirect(process.env.CLIENT_URL);
         } catch (e) {
-            res.status(400).json({message: e.message})
+            next(e);
         }
     }
 
@@ -97,12 +94,12 @@ class AuthController {
         }
     }
 
-    async deleteUser(req, res) {
+    async deleteUser(req, res, next) {
         try {
             await userService.deleteUser(req.body.email);
             res.status(200).json({message: `Пользователь ${req.body.email} успешно удален`});
         } catch (e) {
-            res.status(400).json({message: 'Не получилось удалить пользователя'})
+            next(e);
         }
     }
 }

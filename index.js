@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const cookieParser = require('cookie-parser');
 const blogRouter = require('./routes/blog.router');
 const authRouter = require('./routes/auth.router');
+const errorMiddleware = require('./middleware/error-middleware');
 require('dotenv').config();
 const PORT = process.env.PORT || 5000;
 const dbUrl = process.env.MONGO_URL;
@@ -39,6 +40,7 @@ app.use(express.json());
 app.use(cookieParser());
 app.use('/blog', blogRouter);
 app.use('/auth', authRouter);
+app.use(errorMiddleware);
 
 const start = async () => {
     try {

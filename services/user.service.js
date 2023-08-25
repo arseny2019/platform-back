@@ -4,12 +4,13 @@ const uuid = require('uuid');
 const mailService = require('../services/mail.service');
 const tokenService = require('../services/token.service');
 const bcrypt = require('bcryptjs');
+const ApiError = require('../exeptions/api-error');
 
 class UserService {
     async registration(email, password) {
         const candidate = await User.findOne({email});
         if (candidate) {
-            throw new Error(`Пользователь ${email} уже существует`);
+            throw ApiError.BadRequest(`Пользователь ${email} уже существует`);
         }
         const activationCode = uuid.v4();
         const hashPassword = bcrypt.hashSync(password, 7);
@@ -35,7 +36,7 @@ class UserService {
         const user = await User.findOne({activationCode})
         console.log('user: ', user)
         if (!user) {
-            throw new Error('Такой пользователь не найден')
+            throw ApiError.BadRequest('Такой пользователь не найден')
         }
 
         user.status = 'Active';
