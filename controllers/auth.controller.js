@@ -5,6 +5,7 @@ const bcrypt = require('bcryptjs');
 const {validationResult} = require('express-validator');
 const jwt = require('jsonwebtoken');
 const userService = require('../services/user.service');
+const tokenService = require('../services/token.service');
 const ApiError = require('../exeptions/api-error');
 
 class AuthController {
@@ -28,16 +29,33 @@ class AuthController {
     async login(req, res, next) {
         try {
             const {email, password} = req.body;
-            const user = await User.findOne({email});
-            if (!user) {
-                res.status(400).json({message: `Пользователь ${email} не найден`})
-            }
-            const validPassword = bcrypt.compareSync(password, user.password);
-            // if (!validPassword) {
-            //     res.status(400).json({message: `Введен неверный пароль`})
-            // }
-            // const token = generateAccessToken(user._id, user.username, user.roles);
-            // return res.json({token});
+            const userData = await userService.login(email, password);
+            res.setHeader('access-control-expose-headers', 'Set-Cookie')
+            res.cookie('refreshToken', userData.refreshToken, {maxAge: 5 * 24 * 60 * 60 * 1000, httpOnly: true});
+            const {refreshToken, ...dataWithoutRefreshToken} = userData;
+            return res.json({message: `Пользователь ${email} успешно залогинился`, success: true, data: dataWithoutRefreshToken});
+        } catch (e) {
+            next(e);
+        }
+    }
+
+    async logout(req, res, next) {
+        try {
+            const {refreshToken} = req.cookies;
+            const token = await userService.logout(refreshToken);
+            res.clearCookie('refreshToken');
+            return res.json(token);
+        } catch (e) {
+            next(e);
+        }
+    }
+
+    async refresh(req, res, next) {
+        try {
+            const {refreshToken} = res.cookies;
+            const tokenData = await userService.refresh(refreshToken);
+            res.cookie('refreshToken', tokenData.refreshToken, {maxAge: 5 * 24 * 60 * 60 * 1000, httpOnly: true});
+            return res.json({message: `Пользователь успешно обновил токен c ${refreshToken} на ${tokenData.refreshToken}`});
         } catch (e) {
             next(e);
         }
@@ -56,6 +74,15 @@ class AuthController {
         try {
             const tokens = await Token.find();
             res.json({tokens});
+        } catch (e) {
+            next(e);
+        }
+    }
+
+    async clearAllTokens(req, res, next) {
+        try {
+            const clearTokens = await tokenService.clearAllTokens();
+            res.json({clearTokens});
         } catch (e) {
             next(e);
         }
@@ -83,14 +110,6 @@ class AuthController {
             return res.redirect(process.env.CLIENT_URL);
         } catch (e) {
             next(e);
-        }
-    }
-
-    async refresh() {
-        try {
-
-        } catch (e) {
-
         }
     }
 
