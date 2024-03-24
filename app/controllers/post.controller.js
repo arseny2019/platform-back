@@ -1,6 +1,6 @@
 const Post = require('../models/post.model');
 
-class BlogController {
+class PostController {
     async createPost(req, res) {
         try {
             const {author, content} = req.body;
@@ -28,4 +28,4 @@ class BlogController {
     }
 }
 
-module.exports = new BlogController();
+module.exports = new PostController();

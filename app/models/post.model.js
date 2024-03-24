@@ -2,7 +2,7 @@ const {Schema, model} = require('mongoose');
 
 const Post = new Schema({
     author: {type: String, required: true},
-    category: {type: String, required: false},
+    category: {type: Schema.Types.ObjectId, ref: 'Category'},
     content: {type: String, required: true},
     createDate: {type: String, required: false},
     id: {type: String, required: true},

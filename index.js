@@ -1,9 +1,9 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cookieParser = require('cookie-parser');
-const blogRouter = require('./routes/blog.router');
-const authRouter = require('./routes/auth.router');
-const errorMiddleware = require('./middleware/error-middleware');
+const blogRouter = require('./app/routes/post.router');
+const authRouter = require('./app/routes/auth.router');
+const errorMiddleware = require('./app/middleware/error-middleware');
 const cors = require('cors')
 require('dotenv').config();
 const PORT = process.env.PORT || 5001;
@@ -17,7 +17,7 @@ app.use(cors({
 }))
 app.use(express.json());
 app.use(cookieParser());
-app.use('/blog', blogRouter);
+app.use('/post', blogRouter);
 app.use('/auth', authRouter);
 app.use(errorMiddleware);
 
